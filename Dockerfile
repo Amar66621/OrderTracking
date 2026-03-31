@@ -1,15 +1,31 @@
+# ---------- Stage 1: Build ----------
+FROM maven:3.9.9-eclipse-temurin-17 AS builder
+
+WORKDIR /app
+
+# Copy pom.xml first (for caching dependencies)
+COPY pom.xml .
+
+# Download dependencies
+RUN mvn dependency:go-offline -B
+
+# Copy source code
+COPY src ./src
+
+# Build JAR (skip tests for faster build)
+RUN mvn clean package -DskipTests
 
 
-# Step 1: Use a base image
-FROM eclipse-temurin:17
+# ---------- Stage 2: Runtime ----------
+FROM eclipse-temurin:17-jre-jammy
 
-# Step 2: Set working directory
-WORKDIR /OrderTracking
+WORKDIR /app
 
-# Step 3: Copy your JAR file into the container
-COPY /target/OrderTracking-0.0.1-SNAPSHOT.jar .
+# Copy built JAR from builder
+COPY --from=builder /app/target/*.jar app.jar
 
+# Expose your service port
 EXPOSE 8091
-# Step 4: Set the command to run the JAR
-CMD ["java", "-jar", "OrderTracking-0.0.1-SNAPSHOT.jar"]
 
+# Run the application
+ENTRYPOINT ["java", "-jar", "app.jar"]
